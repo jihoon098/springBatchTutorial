@@ -1,5 +1,6 @@
 package hoonspring.springBatch.springBatchTutorial.job;
 
+import hoonspring.springBatch.springBatchTutorial.job.validator.FileParamValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -35,6 +36,7 @@ public class ValidatedParamJobConfig {
     public Job validatedParamJob(@Qualifier("validatedParamStep") Step validatedParamStep) {
         return new JobBuilder("validatedParamJob", jobRepository)
                 .incrementer(new RunIdIncrementer())
+                .validator(new FileParamValidator())
                 .start(validatedParamStep)
                 .build();
     }
