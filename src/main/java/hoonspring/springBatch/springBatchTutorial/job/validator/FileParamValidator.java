@@ -11,11 +11,14 @@ public class FileParamValidator implements JobParametersValidator {
 
     @Override
     public void validate(JobParameters parameters) throws JobParametersInvalidException {
-        String fileName = parameters.getString("fileName");
 
-        // fileName 값의 postfix가 csv인지 확인
-        if ( !StringUtils.endsWithIgnoreCase(fileName, "csv") ) {
-            throw new JobParametersInvalidException("This is not CSV File");
+        if(parameters != null) {
+            String fileName = parameters.getString("fileName");
+
+            // fileName 값의 postfix가 csv인지 확인
+            if ( !StringUtils.endsWithIgnoreCase(fileName, "csv") ) {
+                throw new JobParametersInvalidException("This is not CSV File");
+            }
         }
     }
 }
