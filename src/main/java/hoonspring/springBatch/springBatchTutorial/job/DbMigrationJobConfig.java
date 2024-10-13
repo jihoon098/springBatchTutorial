@@ -14,6 +14,7 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -98,6 +99,7 @@ public class DbMigrationJobConfig {
         };
     }
 
+    /*
     @Bean
     @StepScope
     public RepositoryItemWriter<Accounts> dbOrdersWriter() {
@@ -105,6 +107,18 @@ public class DbMigrationJobConfig {
                 .repository(accountsRepository)
                 .methodName("save")
                 .build();
+    }
+    */
+
+    @Bean
+    @StepScope
+    public ItemWriter<Accounts> dbOrdersWriter() {
+        return new ItemWriter<Accounts>() {
+            @Override
+            public void write(@NonNull Chunk<? extends Accounts> chunk) throws Exception {
+                chunk.getItems().forEach(accounts -> accountsRepository.save(accounts));
+            }
+        };
     }
 
 }
