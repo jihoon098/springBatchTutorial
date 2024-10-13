@@ -1,5 +1,7 @@
 package hoonspring.springBatch.springBatchTutorial.job;
 
+import hoonspring.springBatch.springBatchTutorial.domain.accounts.Accounts;
+import hoonspring.springBatch.springBatchTutorial.domain.accounts.AccountsRepository;
 import hoonspring.springBatch.springBatchTutorial.domain.orders.OrderRepository;
 import hoonspring.springBatch.springBatchTutorial.domain.orders.Orders;
 import lombok.NonNull;
@@ -12,11 +14,13 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.RepositoryItemReader;
+import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -39,6 +43,8 @@ public class DbMigrationJobConfig {
 
     @Autowired
     private OrderRepository orderRepository;
+    @Autowired
+    private AccountsRepository accountsRepository;
 
     public DbMigrationJobConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         this.jobRepository = jobRepository;
@@ -56,17 +62,14 @@ public class DbMigrationJobConfig {
 
     @Bean
     @JobScope
-    public Step dbMigrationStep(ItemReader<Orders> dbOrdersReader) {
+    public Step dbMigrationStep(
+            ItemReader<Orders> itemReader, ItemProcessor<Orders,Accounts> itemProcessor, ItemWriter<Accounts> itemWriter) {
         // StepBuilder를 사용하여 Job의 작은 실행 단위인 Step을 구성
         return new StepBuilder("DbMigrationStep", jobRepository)
-                .<Orders, Orders>chunk(5, transactionManager)
-                .reader(dbOrdersReader)
-                .writer(new ItemWriter<Orders>() {
-                    @Override
-                    public void write(@NonNull Chunk<? extends Orders> chunk) throws Exception {
-                        chunk.getItems().forEach(System.out::println);
-                    }
-                })
+                .<Orders, Accounts>chunk(5, transactionManager)
+                .reader(itemReader)
+                .processor(itemProcessor)
+                .writer(itemWriter)
                 .build();
     }
 
@@ -82,4 +85,26 @@ public class DbMigrationJobConfig {
                 .sorts(Collections.singletonMap("id", Sort.Direction.ASC))
                 .build();
     }
+
+    @Bean
+    @StepScope
+    public ItemProcessor<Orders, Accounts> dbOrdersProcessor() {
+        return new ItemProcessor<Orders, Accounts>() {
+            @Override
+            public Accounts process(@NonNull Orders item) throws Exception {
+                // item 파라미터에는 itemReader 를 통해 읽어온 데이터가 전달된다.
+                return new Accounts(item);
+            }
+        };
+    }
+
+    @Bean
+    @StepScope
+    public RepositoryItemWriter<Accounts> dbOrdersWriter() {
+        return new RepositoryItemWriterBuilder<Accounts>()
+                .repository(accountsRepository)
+                .methodName("save")
+                .build();
+    }
+
 }
