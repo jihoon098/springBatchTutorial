@@ -1,6 +1,7 @@
 package hoonspring.springBatch.springBatchTutorial.job;
 
 import hoonspring.springBatch.springBatchTutorial.domain.Player;
+import hoonspring.springBatch.springBatchTutorial.domain.PlayerYears;
 import hoonspring.springBatch.springBatchTutorial.fieldMapper.PlayerFieldSetMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -11,10 +12,13 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -49,14 +53,15 @@ public class FileDataReadWriteConfig {
     }
 
     @Bean
-    public Step FileReadWriteStep(ItemReader<Player> itemReader) {
+    public Step FileReadWriteStep(ItemReader<Player> itemReader, ItemProcessor<Player, PlayerYears> itemProcessor) {
         // StepBuilder를 사용하여 Job의 작은 실행 단위인 Step을 구성
         return new StepBuilder("FileReadWriteStep", jobRepository)
-                .<Player, Player>chunk(5, transactionManager)
+                .<Player, PlayerYears>chunk(5, transactionManager)
                 .reader(itemReader)
-                .writer(new ItemWriter<Player>() {
+                .processor(itemProcessor)
+                .writer(new ItemWriter<PlayerYears>() {
                     @Override
-                    public void write(@NonNull Chunk<? extends Player> chunk) throws Exception {
+                    public void write(@NonNull Chunk<? extends PlayerYears> chunk) throws Exception {
                         chunk.getItems().forEach(System.out::println);
                     }
                 })
@@ -74,4 +79,16 @@ public class FileDataReadWriteConfig {
                 .linesToSkip(1) // 파일의 읽을 때 Skip 할 라인 수 지정
                 .build();
     }
+
+    @Bean
+    @StepScope
+    public ItemProcessor<Player, PlayerYears> playerItemProcessor() {
+        return new ItemProcessor<Player, PlayerYears>() {
+            @Override
+            public PlayerYears process(@NonNull Player item) throws Exception {
+                return new PlayerYears(item);
+            }
+        };
+    }
+
 }
