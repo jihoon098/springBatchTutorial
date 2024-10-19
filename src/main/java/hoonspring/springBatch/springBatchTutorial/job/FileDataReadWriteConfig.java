@@ -19,6 +19,8 @@ import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
+import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
+import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +28,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.lang.NonNull;
 import org.springframework.transaction.PlatformTransactionManager;
+
+
+
 
 /*
  * Description: 파일(File) 읽고 쓰기
@@ -53,18 +58,15 @@ public class FileDataReadWriteConfig {
     }
 
     @Bean
-    public Step FileReadWriteStep(ItemReader<Player> itemReader, ItemProcessor<Player, PlayerYears> itemProcessor) {
+    public Step FileReadWriteStep(ItemReader<Player> itemReader,
+                                  ItemProcessor<Player, PlayerYears> itemProcessor,
+                                  ItemWriter<PlayerYears> itemWriter) {
         // StepBuilder를 사용하여 Job의 작은 실행 단위인 Step을 구성
         return new StepBuilder("FileReadWriteStep", jobRepository)
                 .<Player, PlayerYears>chunk(5, transactionManager)
                 .reader(itemReader)
                 .processor(itemProcessor)
-                .writer(new ItemWriter<PlayerYears>() {
-                    @Override
-                    public void write(@NonNull Chunk<? extends PlayerYears> chunk) throws Exception {
-                        chunk.getItems().forEach(System.out::println);
-                    }
-                })
+                .writer(itemWriter)
                 .build();
     }
 
@@ -91,4 +93,28 @@ public class FileDataReadWriteConfig {
         };
     }
 
+    // FlatFileItemWriter : 데이터를 평문 file(텍스트 파일)로 작성하는 Spring Batch의 기본 Writer
+    @Bean
+    @StepScope
+    public FlatFileItemWriter<PlayerYears> playerItemWriter() {
+
+        // BeanWrapperFieldExtractor : 파일을 작성할 때 VO 의 어떤 field 를 추출할 지 배열로 입력
+        BeanWrapperFieldExtractor<PlayerYears> fieldExtractor = new BeanWrapperFieldExtractor<>();
+        fieldExtractor.setNames(new String[]{"ID", "lastName", "position", "yearExperience"});
+        fieldExtractor.afterPropertiesSet(); // 필드 추출기가 제대로 구성되었는지 검증
+
+        // DelimitedLineAggregator : 작성할 한 줄을 생성하는 방식을 설정
+        DelimitedLineAggregator<PlayerYears> lineAggregator = new DelimitedLineAggregator<>();
+        lineAggregator.setDelimiter(","); // 각 필드 값들의 연결에 사용할 구분자를 지정
+        lineAggregator.setFieldExtractor(fieldExtractor);
+
+        // FileSystemResource : 파일 경로와 파일 자체를 지정하는 Spring의 리소스 객체
+        FileSystemResource outputResource = new FileSystemResource("player_output.txt");
+
+        return new FlatFileItemWriterBuilder<PlayerYears>()
+                .name("playerItemWriter")
+                .resource(outputResource)
+                .lineAggregator(lineAggregator)
+                .build();
+    }
 }
