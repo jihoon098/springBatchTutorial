@@ -1,4 +1,12 @@
 spring:
+  profiles:
+    active: local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
   batch:
     job:
       name: ${job.name:NONE}
@@ -11,3 +19,9 @@ spring:
     password: root
   jpa:
     show-sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
